@@ -4,9 +4,105 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Assignment</title>
+    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.10.24/css/jquery.dataTables.css">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            padding: 10px;
+            border-bottom: 1px solid #ddd;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+            white-space: nowrap;
+            position: relative;
+            left: -10px;
+        }
+    </style>
 </head>
 <body>
     <div id="results"></div>
+    <button id="exportBtn">Export to Excel</button>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.datatables.net/1.10.24/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.1/moment.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.3/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script> 
+    <script>
+        $(document).ready(function () {
+            var data = JSON.parse(document.getElementById('data').textContent); //parse data JSON
+
+            // Parse datetime strings into Date objects
+            data.forEach(function (item) {
+                item.so_datecreated = moment(item.so_datecreated, 'YYYY-MM-DD HH:mm:ss').format('MM/DD/YYYY');
+                item.so_taxrate = (item.so_taxrate * 100).toFixed(2) + '%';
+                item.so_totalprice = '$' + item.so_totalprice.toFixed(2);
+                item.so_totaltax = '$' + item.so_totaltax.toFixed(2);
+            });
+
+            var table = $('<table>').addClass('display').attr('id', 'dataTable').appendTo('#results'); //added table element
+
+            // DataTable 
+            var dataTable = $('#dataTable').DataTable({
+                data: data,
+                columns: [
+                    { title: 'Sales Order Number', data: 'so_num' },
+                    { title: 'Date Created', data: 'so_datecreated', type: 'date' },
+                    { title: 'Note', data: 'so_note' },
+                    { title: 'Ship To Name', data: 'shipto_name' },
+                    { title: 'Tax Rate', data: 'so_taxrate' },
+                    { title: 'Total Price', data: 'so_totalprice' },
+                    { title: 'Total Tax', data: 'so_totaltax' }
+                ],
+		lengthMenu: [[10, 25, 50, -1], [10, 25, 50, "All"]] // Show options: 10, 25, 50, and "All"
+            });
+
+            // Export to Excel
+            $('#exportBtn').on('click', function() {
+                dataTable.columns.adjust().draw(); // Adjust column widths before exporting
+                var wb = XLSX.utils.book_new();
+                var ws = XLSX.utils.json_to_sheet(dataTable.rows().data().toArray());
+
+                // Column formats
+                ws['!cols'] = [
+                    {wch: 20}, // Sales Order Number
+                    {wch: 15}, // Date Created
+                    {wch: 30}, // Note
+                    {wch: 20}, // Ship To Name
+                    {wch: 15}, // Tax Rate
+                    {wch: 15}, // Total Price
+                    {wch: 15}  // Total Tax
+                ];
+
+                // Define column headers
+                ws['A1'].v = 'Sales Order Number';
+                ws['B1'].v = 'Date Created';
+                ws['C1'].v = 'Note';
+                ws['D1'].v = 'Ship To Name';
+                ws['E1'].v = 'Tax Rate';
+                ws['F1'].v = 'Total Price';
+                ws['G1'].v = 'Total Tax';
+
+                XLSX.utils.book_append_sheet(wb, ws, "Sheet1");
+                var wbout = XLSX.write(wb, {bookType:'xlsx', bookSST:true, type: 'binary'});
+                saveAs(new Blob([s2ab(wbout)],{type:"application/octet-stream"}), 'export.xlsx');
+            });
+
+            function s2ab(s) {
+                var buf = new ArrayBuffer(s.length);
+                var view = new Uint8Array(buf);
+                for (var i=0; i<s.length; i++) view[i] = s.charCodeAt(i) & 0xFF;
+                return buf;
+            }
+        });
+    </script>
 </body>
 <script id="data" type="application/json">
 	[
